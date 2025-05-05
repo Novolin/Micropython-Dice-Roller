@@ -1,7 +1,7 @@
 # Dice definitions live here.
 from random import randint
 from framebuf import FrameBuffer, MONO_HMSB #type:ignore
-import array
+from array import array
 
 # for advantage/disadvantage shit
 ADVANTAGE = 1
@@ -49,7 +49,8 @@ def build_triad_gfx(value):
     output = FrameBuffer(bytearray(32*4), 32, 32, MONO_HMSB)
     coords = array('h',[0,0,30,0,15,30,0,0])
     output.poly(0,0,coords,1)
-    output.text(str(value), 15 - len(str(value))//2, str(value), 7,1) # TODO: replace with a custom font
+    output.text(str(value), 15 - len(str(value))* 4, 7, 1) # TODO: replace with a custom font
+    return output
 
 
 class MenuScreen:

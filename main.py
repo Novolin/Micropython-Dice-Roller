@@ -44,6 +44,16 @@ die_list = [2,4,6,8,10,12,20,100]
 
 mnu = dice.MenuScreen(screen)
 
+# Buttons, look how neat!!!!
+butt_sel_prev = hardwares.Button(12)
+butt_sel_next = hardwares.Button(13)
+butt_decrease = hardwares.Button(14)
+butt_increase = hardwares.Button(15)
+butt_roll_bro = hardwares.Button(17)
+
+
+
+
 async def main():
     # create our monitor function
     
