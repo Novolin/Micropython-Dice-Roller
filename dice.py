@@ -60,7 +60,8 @@ class MenuScreen:
         self.die_amount = 1
         self.modifier = 0
         self.advantage_state = NEUTRAL
-        self.varlist = [self.die_sides, self.die_amount, self.modifier, self.advantage_state, "hist", "roll"]
+        self.hist = HistoryScreen
+        self.varlist = [self.die_sides, self.die_amount, self.modifier, self.advantage_state, self.hist, "roll"]
         self.selected_var = 0 # what variable is the +/- key setting.
 
     def select_next(self):
@@ -69,6 +70,10 @@ class MenuScreen:
             self.selected_var = 0
         self.draw_to_display()
         
+
+    def do_roll_action(self):
+        # TODO: make the gfx nice
+        pass
 
     def draw_to_display(self):
         # blank:
@@ -106,5 +111,9 @@ class MenuScreen:
 class HistoryScreen:
     def __init__(self, display):
         self.display = display
-        self.hist_list = []
+        self.hist_list = {
+            "20":[]}
         self.hist_max_len = 10
+    
+    def get_last_roll(self, dtype):
+        print(self.hist_list[dtype])
