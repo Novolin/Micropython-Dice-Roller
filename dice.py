@@ -70,6 +70,17 @@ class MenuScreen:
             self.selected_var = 0
         self.draw_to_display()
         
+    def change_die_sides(self, sides):
+        self.die_sides = sides
+        self.draw_to_display()
+
+    def change_die_amount(self, amount):
+        self.die_amount = amount
+        self.draw_to_display()
+
+    def change_modifier(self, amount):
+        self.modifier += amount
+        self.draw_to_display()
 
     def do_roll_action(self):
         # TODO: make the gfx nice

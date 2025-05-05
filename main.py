@@ -24,9 +24,11 @@ SDA_PIN = Pin(4) # pico binding, change as needed
 SCL_PIN = Pin(5) 
 
 
-
+running = True
 
 i2c = I2C(0, sda = SDA_PIN, scl = SCL_PIN )
+
+debug_pin = Pin(25) # random pin to kill stuff in the loop
 
 screen_address = i2c.scan()
 if screen_address == []:
@@ -36,7 +38,9 @@ if screen_address == []:
 # objecterinos
 screen = hardwares.Display(i2c)
 screen_lock = asyncio.Lock() # are we doing something that should stop the screen from updating?
-die_list = []
+die_list = [2,4,6,8,10,12,20,100]
+
+
 
 mnu = dice.MenuScreen(screen)
 
@@ -46,6 +50,11 @@ async def main():
 
     pass
 
+async def debug_kill():
+    while running:
+        if not debug_pin.value():
+            running = False
+            raise EOFError # raise an error to just kill it.
 
 if __name__ == "__main__":
     mnu.draw_to_display()
