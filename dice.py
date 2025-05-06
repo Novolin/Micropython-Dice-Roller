@@ -45,7 +45,7 @@ def build_d6_gfx(val) -> FrameBuffer:
         output.ellipse(24,15,3,3,1,1)
     return output
 
-def build_triad_gfx(value):
+def build_triad_gfx(value) -> FrameBuffer:
     # returns a framebuffer object with the die in a lil triangle doodler
     output = FrameBuffer(bytearray(32*4), 32, 32, MONO_HLSB)
     coords = array('h',[0,0,30,0,15,30,0,0])
@@ -71,22 +71,12 @@ class Font:
                     curr_byte += 1
                 self.chars[c] = FrameBuffer(dat, self.size_x, self.size_y, MONO_HLSB)
             self.chars[" "] = FrameBuffer(bytearray(bytes_per_char), self.size_x, self.size_y, MONO_HLSB)
-    def get_string_img(self, string_to_print):
-        string_img_size = self.size_x * len(string_to_print)
-        print("ERR:", ceil(string_img_size/8)*self.size_y)
-        print("imgsize",string_img_size)
-        print("sizey:",self.size_y)
-        print("sizex",self.size_x)
-        print(string_to_print)
-
-        outbuff = FrameBuffer(bytearray(ceil(string_img_size / 8) * self.size_y), string_img_size, self.size_y, MONO_HLSB)
-        chcount = 0
-        while chcount < len(string_to_print):
-            outbuff.blit(self.chars[string_to_print[chcount].upper()], chcount * self.size_x, 0)
-        return outbuff
-
-    def write_to_screen(self, string, screen, x, y):
-        screen.blit(self.get_string_img(string), x, y)
+    
+    def write_to_screen(self, string, screen, x, y) -> None:
+        char_count = 0
+        for c in string.upper():
+            screen.blit(self.chars(c), x + (char_count * self.size_x), y)
+            char_count += 1
 
 class MenuScreen:
     # The main menu you see with options and shit
