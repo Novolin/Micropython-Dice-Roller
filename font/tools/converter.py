@@ -12,7 +12,7 @@ def encode_img_to_bitstream(img)-> bytearray:
     bt = 0
     for px in list(img.getdata()):
         if px > 1:
-            bt |= 1 < bitcount
+            bt |= 1 << bitcount
         bitcount += 1
         if bitcount >= 8:
             output.append(bt)
