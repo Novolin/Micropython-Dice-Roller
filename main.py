@@ -41,15 +41,19 @@ screen_lock = asyncio.Lock() # are we doing something that should stop the scree
 die_list = [2,4,6,8,10,12,20,100]
 
 
+print("FART")
 
 mnu = dice.MenuScreen(screen)
 
-# Buttons, look how neat!!!!
-butt_sel_prev = hardwares.Button(SELECT_PREV)
-butt_sel_next = hardwares.Button(SELECT_NEXT)
-butt_decrease = hardwares.Button(VAL_UP)
-butt_increase = hardwares.Button(VAL_DOWN)
-butt_roll_bro = hardwares.Button(CONFIRM)
+print("GAY")
+
+
+# Button bindings
+#butt_sel_prev = hardwares.Button(SELECT_PREV)
+#butt_sel_next = hardwares.Button(SELECT_NEXT)
+#butt_decrease = hardwares.Button(VAL_UP)
+#butt_increase = hardwares.Button(VAL_DOWN)
+#butt_roll_bro = hardwares.Button(CONFIRM)
 
 
 def poll_buttons(list_of_buttons):
@@ -63,18 +67,37 @@ def poll_buttons(list_of_buttons):
     return -1 # no valid presses.
 
 
+def DEBUG_TEST():
+    # goes through a few dice displays.
+    for i in range(6):
+
+        mnu.display.fill(0)
+        mnu.display.blit(dice.build_d6_gfx(i+1), 12, 12)
+        mnu.display.show()
+        print(i+1)
+        sleep_ms(250)
+    for i in range(20):
+        mnu.display.fill(0)
+        mnu.display.blit(dice.build_triad_gfx(i+1), 12, 12)
+        mnu.display.show()
+        print(i+1)
+        sleep_ms(250)
+    
+    for c in "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        print(c)
+        mnu.display.fill(0)
+        mnu.display.blit(mnu.font.chars[c], 12, 12)
+        mnu.display.show()
+        
+        sleep_ms(250)
+
+
+
 async def main():
     # create our monitor function
     
 
     pass
 
-async def debug_kill():
-    while running:
-        if not debug_pin.value():
-            running = False
-            raise EOFError # raise an error to just kill it.
 
-if __name__ == "__main__":
-    mnu.draw_to_display()
         

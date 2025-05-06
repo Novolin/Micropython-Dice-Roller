@@ -1,7 +1,8 @@
 # Dice definitions live here.
 from random import randint
-from framebuf import FrameBuffer, MONO_HMSB #type:ignore
+from framebuf import FrameBuffer, MONO_HLSB #type:ignore
 from array import array
+from math import ceil
 
 # for advantage/disadvantage shit
 ADVANTAGE = 1
@@ -22,7 +23,7 @@ def signed_int_to_str(val) -> str:
 
 def build_d6_gfx(val) -> FrameBuffer:
     # returns a framebuffer object with the image of a D6 of the given value, as a 32x32 block
-    output = FrameBuffer(bytearray(32*4), 32, 32, MONO_HMSB)
+    output = FrameBuffer(bytearray(32*4), 32, 32, MONO_HLSB)
     # draw a border
     output.hline(1,0,29,1)
     output.hline(1,30,29,1)
@@ -46,12 +47,46 @@ def build_d6_gfx(val) -> FrameBuffer:
 
 def build_triad_gfx(value):
     # returns a framebuffer object with the die in a lil triangle doodler
-    output = FrameBuffer(bytearray(32*4), 32, 32, MONO_HMSB)
+    output = FrameBuffer(bytearray(32*4), 32, 32, MONO_HLSB)
     coords = array('h',[0,0,30,0,15,30,0,0])
     output.poly(0,0,coords,1)
     output.text(str(value), 15 - len(str(value))* 4, 7, 1) # TODO: replace with a custom font
     return output
 
+
+class Font:
+    def __init__(self, file_path) -> None:
+        # Encode font with the script in font/tools
+        self.chars = {}
+        with open(file_path, "r+b") as infile:
+            data = infile.read()
+            self.size_x = data[0]
+            self.size_y = data[1]
+            bytes_per_char = ceil(self.size_x / 8) * self.size_y
+            curr_byte = 2
+            for c in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                dat = bytearray(0)
+                while len(dat) < bytes_per_char:
+                    dat.append(data[curr_byte])
+                    curr_byte += 1
+                self.chars[c] = FrameBuffer(dat, self.size_x, self.size_y, MONO_HLSB)
+            self.chars[" "] = FrameBuffer(bytearray(bytes_per_char), self.size_x, self.size_y, MONO_HLSB)
+    def get_string_img(self, string_to_print):
+        string_img_size = self.size_x * len(string_to_print)
+        print("ERR:", ceil(string_img_size/8)*self.size_y)
+        print("imgsize",string_img_size)
+        print("sizey:",self.size_y)
+        print("sizex",self.size_x)
+        print(string_to_print)
+
+        outbuff = FrameBuffer(bytearray(ceil(string_img_size / 8) * self.size_y), string_img_size, self.size_y, MONO_HLSB)
+        chcount = 0
+        while chcount < len(string_to_print):
+            outbuff.blit(self.chars[string_to_print[chcount].upper()], chcount * self.size_x, 0)
+        return outbuff
+
+    def write_to_screen(self, string, screen, x, y):
+        screen.blit(self.get_string_img(string), x, y)
 
 class MenuScreen:
     # The main menu you see with options and shit
@@ -64,6 +99,7 @@ class MenuScreen:
         self.hist = HistoryScreen
         self.varlist = [self.die_sides, self.die_amount, self.modifier, self.advantage_state, self.hist, "roll"]
         self.selected_var = 0 # what variable is the +/- key setting.
+        self.font = Font("font/lcdfont")
 
     def select_next(self):
         self.selected_var += 1
@@ -102,10 +138,9 @@ class MenuScreen:
         self.display.text(signed_int_to_str(self.modifier), 88,2)
 
         # Die info
-        # This is where I'd change to a larger custom font
-        self.display.text(str(self.die_amount) + "D" + str(self.die_sides), 8,16)
+        self.font.write_to_screen(str(self.die_amount) + "D" + str(self.die_sides), self.display, 8, 16)
         # Footer
-        self.display.text("ROLL HIST ADV", 8,54)
+        self.display.text("HIST ADV ROLL", 8,54)
         
         # Place the selector indicator:
         if self.selected_var == 0: # Die size, will need tweaks after font change!!!!

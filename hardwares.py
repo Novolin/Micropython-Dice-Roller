@@ -3,6 +3,7 @@ import asyncio
 from ssd1306 import SSD1306_I2C 
 from machine import Pin #type:ignore
 import framebuf #type:ignore
+from math import ceil
 # We're only supporting I2C at the moment, since thats what my hardware calls for
 # I'm sure you could take this code and make it play nice with any other interface.
 
