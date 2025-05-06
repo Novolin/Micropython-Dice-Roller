@@ -51,10 +51,12 @@ class Button:
                 self.just_changed = False # it's been this way for at least one cycle
             else:
                 self.just_changed = True # First poll since change
+                self.released = True
                 
         else:
             if self.released:
                 self.just_changed = True # Button was just pressed.
+                self.released = False
                 
             else:
                 self.just_changed = False 
@@ -77,11 +79,13 @@ class LEDButton(Button):
                 self.just_changed = False # it's been this way for at least one cycle
             else:
                 self.just_changed = True # First poll since change
+                self.released = True
                 if self.light_on_press and not self.led.blink:
                     self.led.turn_off()
         else:
             if self.released:
                 self.just_changed = True # Button was just pressed.
+                self.released = False
                 if self.light_on_press and not self.led.blink:
                     self.led.turn_on()
             else:
