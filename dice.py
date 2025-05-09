@@ -54,45 +54,18 @@ def build_triad_gfx(value) -> FrameBuffer:
     return output
 
 
-class Font:
-    def __init__(self, file_path) -> None:
-        # Encode font with the script in font/tools
-        self.chars = {}
-        with open(file_path, "r+b") as infile:
-            data = infile.read()
-            self.size_x = data[0]
-            self.size_y = data[1]
-            bytes_per_char = data[2]
-            curr_byte = 3
-            curr_char = 0
-            for c in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
-                print(c, self.size_x, self.size_y, self.size_x * self.size_y, bytes_per_char * 8)
-                dat = bytearray(0)
-                print(bytes_per_char)
-                while curr_byte - (bytes_per_char * curr_char) - 3 <= bytes_per_char :
-                    dat.append(data[curr_byte])
-                    curr_byte += 1
-                print(len(dat))
-                self.chars[c] = FrameBuffer(dat, self.size_x, self.size_y, 0)
-                curr_char += 1
-            self.chars[" "] = FrameBuffer(bytearray(bytes_per_char), self.size_x, self.size_y, MONO_HLSB)
-    
-    def write_to_screen(self, string, screen, x, y) -> None:
-        char_count = 0
-        for c in string.upper():
-            screen.blit(self.chars[c], x + (char_count * self.size_x), y)
-            char_count += 1
-
 class MenuScreen:
     # The main menu you see with options and shit
     def __init__(self, display):
         self.display = display
         self.die_sides = 6
-        self.die_amount = 1
+        self.die_vals = [2,4,6,8,10,12,16,20,100]
+        self.val_pointer = 2 # where in the value list are we
+        self.dice_amount = 1
         self.modifier = 0
         self.advantage_state = NEUTRAL
         self.hist = HistoryScreen
-        self.varlist = [self.die_sides, self.die_amount, self.modifier, self.advantage_state, self.hist, "roll"]
+        self.varlist = [self.dice_amount, self.die_sides, self.modifier, self.hist, self.advantage_state , "roll"]
         self.selected_var = 0 # what variable is the +/- key setting.
         
 
@@ -102,21 +75,64 @@ class MenuScreen:
             self.selected_var = 0
         self.draw_to_display()
         
-    def change_die_sides(self, sides):
-        self.die_sides = sides
+
+    def select_prev(self):
+        self.selected_var -= 1
+        if self.selected_var < 0:
+            self.selected_var = len(self.varlist) - 1
         self.draw_to_display()
 
-    def change_die_amount(self, amount):
-        self.die_amount = amount
+    def change_die_sides(self, val):
+        self.val_pointer += val
+        if self.val_pointer >= len(self.die_vals):
+            self.val_pointer = 0
+        elif self.val_pointer < 0:
+            self.val_pointer = len(self.die_vals) - 1
+        self.die_sides = self.die_vals[self.val_pointer]
+        self.draw_to_display()
+
+    def change_dice_amount(self, amount):
+        self.dice_amount += amount
+        if self.dice_amount == 0:
+            self.dice_amount = 1
+        elif self.dice_amount >= 10: # max # of dice at once.
+            self.dice_amount = 1
         self.draw_to_display()
 
     def change_modifier(self, amount):
         self.modifier += amount
         self.draw_to_display()
 
-    def do_roll_action(self):
-        # TODO: make the gfx nice
-        pass
+    def increase_chosen_var(self):
+        if self.selected_var == 0: # number of dice:
+            self.change_dice_amount(1)
+        elif self.selected_var == 1: # die value
+            self.change_die_sides(1)
+        elif self.selected_var == 2: # Modifier
+            self.change_modifier(1)
+        elif self.selected_var == 4: # advantage, this is a bit messy.
+            if self.advantage_state < ADVANTAGE:
+                self.advantage_state += 1
+        return
+    
+    def decrease_chosen_var(self):
+        if self.selected_var == 0: # number of dice:
+            self.change_dice_amount(-1)
+        elif self.selected_var == 1: # die value
+            self.change_die_sides(-1)
+        elif self.selected_var == 2: # Modifier
+            self.change_modifier(-1)
+        elif self.selected_var == 4: # advantage, this is a bit messy.
+            if self.advantage_state > DISADVANTAGE:
+                self.advantage_state -= 1
+        return
+    
+    def is_roll_selected(self):
+        # simple getter for seeing if we can roll the die or not.
+        if self.varlist[self.selected_var] == "roll":
+            return True
+        return False
+
 
     def draw_to_display(self):
         # blank:
@@ -133,19 +149,26 @@ class MenuScreen:
         self.display.text(signed_int_to_str(self.modifier), 88,2)
 
         # Die info
-        self.display.text(str(self.die_amount) + "D" + str(self.die_sides), 8, 16)
+        infostring = str(self.dice_amount) + "D" + str(self.die_sides)
+        self.display.text(infostring, get_centered_text_coords(infostring), 16)
         # Footer
         self.display.text("HIST ADV ROLL", 8,54)
         
         # Place the selector indicator:
         if self.selected_var == 0: # Die size, will need tweaks after font change!!!!
-            self.display.hline(24,24,len(str(self.die_sides)) * 8,2)
+            line_start = get_centered_text_coords(infostring)
+            self.display.hline(line_start,24,8,1)
         elif self.selected_var == 1: # Number of Dice
-            self.display.hline(8,24,8,2)
+            line_start = get_centered_text_coords(infostring)
+            self.display.hline(line_start + 8 +len(str(self.dice_amount)) * 8,24,len(str(self.die_sides)) * 8,1)
         elif self.selected_var == 2: # Modifier
             self.display.hline(88,11,len(signed_int_to_str(self.modifier)) *8, 1)
-        elif self.selected_var == 3:
-            self.display.vline(100,50,4,1)
+        elif self.selected_var == 3: # History
+            self.display.hline(8,50,32,1)
+        elif self.selected_var == 4: # Advantage
+            self.display.hline(48, 50, 24, 1)
+        elif self.selected_var == 5: # Roll
+            self.display.hline(80, 50, 32, 1)
         self.display.needs_refresh = True
         # TEMP: just blit immediately.
         self.display.show()
@@ -159,3 +182,21 @@ class HistoryScreen:
     
     def get_last_roll(self, dtype):
         print(self.hist_list[dtype])
+
+class ResultScreen:
+    def __init__(self, display):
+        self.display = display
+        self.active = False
+        self.buffer = FrameBuffer(bytearray(1024), 128, 64, MONO_HLSB)
+    
+    def show_result(self, val, modify = 0, adv = 0):
+        # for now just dump it:
+        final = randint(1,val)
+        self.display.fill(0)
+        self.display.text(final, 24, 24)
+        if modify: 
+            self.display.text(signed_int_to_str(modify) + " = " + str(final + modify), 32, 24)
+        # not worryin about advantage yet
+
+
+

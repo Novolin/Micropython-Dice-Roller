@@ -39,7 +39,8 @@ class LED:
         self.blink_time_ms = blink_duration
         while self.blink:
             self.toggle_state()
-            await asyncio.sleep_ms(self.blink_time_ms) # You can tweak blink time external to this loop, if you're weird.
+            await asyncio.sleep_ms(self.blink_time_ms) # type:ignore
+            # You can tweak blink time external to this loop, if you're weird.
 
 class Button:
     def __init__(self, button_pin):
@@ -108,4 +109,4 @@ class Display(SSD1306_I2C):
             if self.needs_refresh:
                 self.show()
                 self.needs_refresh = False
-            await asyncio.sleep_ms(frame_time)
+            await asyncio.sleep_ms(frame_time) #type:ignore

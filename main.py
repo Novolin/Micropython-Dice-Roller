@@ -6,7 +6,10 @@ from machine import Pin, I2C #type: ignore
 import hardwares
 import asyncio
 import dice
-from time import sleep_ms
+import anims
+import gc
+from time import sleep_ms #type: ignore
+from micropython import mem_info #type:ignore
 
 
 # Pin assignments
@@ -15,7 +18,7 @@ SELECT_PREV = 12 # Select <-
 SELECT_NEXT = 13 # Select -> 
 VAL_UP = 14 # Increase button
 VAL_DOWN = 15 # Decrease button
-CONFIRM_LED = -1 # LED Pin for the confirm button.
+CONFIRM_LED = 25 # LED Pin for the confirm button.
 ADV_LED = -1 # LED pin for advantage
 DISADV_LED = -1 # LED pin for disadvantage
 
@@ -28,7 +31,7 @@ running = True
 
 i2c = I2C(0, sda = SDA_PIN, scl = SCL_PIN )
 
-debug_pin = Pin(25) # random pin to kill stuff in the loop
+debug_pin = Pin(20, Pin.IN, Pin.PULL_UP) # random pin to kill stuff in the loop
 
 screen_address = i2c.scan()
 if screen_address == []:
@@ -39,21 +42,20 @@ if screen_address == []:
 screen = hardwares.Display(i2c)
 screen_lock = asyncio.Lock() # are we doing something that should stop the screen from updating?
 die_list = [2,4,6,8,10,12,20,100]
-
-
-print("FART")
+print("Init Screens:")
 
 mnu = dice.MenuScreen(screen)
-
-print("GAY")
-
+results = dice.ResultScreen(screen)
+anim_scr = anims.CoinFlip(20, 6)
 
 # Button bindings
-#butt_sel_prev = hardwares.Button(SELECT_PREV)
-#butt_sel_next = hardwares.Button(SELECT_NEXT)
-#butt_decrease = hardwares.Button(VAL_UP)
-#butt_increase = hardwares.Button(VAL_DOWN)
-#butt_roll_bro = hardwares.Button(CONFIRM)
+butt_sel_prev = hardwares.Button(SELECT_PREV)
+butt_sel_next = hardwares.Button(SELECT_NEXT)
+butt_decrease = hardwares.Button(VAL_UP)
+butt_increase = hardwares.Button(VAL_DOWN)
+butt_roll_bro = hardwares.LEDButton(CONFIRM,CONFIRM_LED, False)
+
+kill_loop = asyncio.Event() # This is to kill the loop if I need to debug or if things hang. It will crash shit, which is fine.
 
 
 def poll_buttons(list_of_buttons):
@@ -66,38 +68,62 @@ def poll_buttons(list_of_buttons):
         return poll_result_list.index(False)
     return -1 # no valid presses.
 
-
-def DEBUG_TEST():
-    # goes through a few dice displays.
-    for i in range(6):
-
-        mnu.display.fill(0)
-        mnu.display.blit(dice.build_d6_gfx(i+1), 12, 12)
-        mnu.display.show()
-        print(i+1)
-        sleep_ms(250)
-    for i in range(20):
-        mnu.display.fill(0)
-        mnu.display.blit(dice.build_triad_gfx(i+1), 12, 12)
-        mnu.display.show()
-        print(i+1)
-        sleep_ms(250)
-    
-    for c in "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ":
-        print(c)
-        mnu.display.fill(0)
-        mnu.display.blit(mnu.font.chars[c], 12, 12)
-        mnu.display.show()
-        
-        sleep_ms(250)
+def do_roll(amount, value, mod, advantage):
+    print("Imagine I rolled", amount, "D", value, mod)
+    if advantage > 0:
+        print("with advantage!")
+    elif advantage < 0:
+        print("with disadvantage")
 
 
+
+async def check_inputs():
+    b_list = [butt_sel_prev, butt_sel_next, butt_decrease, butt_increase, butt_roll_bro]
+    last_result = -1
+    while True:
+        poll_result = poll_buttons(b_list)
+        if poll_result != last_result:
+            print(poll_result)
+            last_result = poll_result # So we don't repeat right now
+            if poll_result == 0:
+                mnu.select_prev()
+            elif poll_result == 1:
+                mnu.select_next()
+            elif poll_result == 2: # Increment
+                mnu.increase_chosen_var()
+            elif poll_result == 3: # Decrement
+                mnu.decrease_chosen_var()
+            elif poll_result == 4: # Roll/select
+                if mnu.is_roll_selected():
+                    do_roll(mnu.dice_amount, mnu.die_vals[mnu.val_pointer], mnu.modifier, mnu.advantage_state)
+                else:
+                    mem_info()
+        await asyncio.sleep_ms(10) #type:ignore
+
+async def roll_enabled():
+    while True:
+        if mnu.is_roll_selected():
+            butt_roll_bro.led.turn_on()
+        else:
+            butt_roll_bro.led.turn_off()
+        await asyncio.sleep_ms(10) #type:ignore
+
+            
+            
 
 async def main():
     # create our monitor function
     
+    mem_info()
+    gc.collect()
+    print("-----------")
+    mem_info()
+    while running:
+        asyncio.create_task(check_inputs())
+        asyncio.create_task(roll_enabled())
+        # Put one here for lights that checks adv/disadv, and if we can roll
+        await kill_loop.wait()
 
-    pass
-
-
-        
+if __name__ == "__main__":
+    mnu.draw_to_display()
+    asyncio.run(main())
