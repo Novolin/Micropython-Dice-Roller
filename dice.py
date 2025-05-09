@@ -62,20 +62,25 @@ class Font:
             data = infile.read()
             self.size_x = data[0]
             self.size_y = data[1]
-            bytes_per_char = ceil(self.size_x / 8) * self.size_y
-            curr_byte = 2
+            bytes_per_char = data[2]
+            curr_byte = 3
+            curr_char = 0
             for c in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                print(c, self.size_x, self.size_y, self.size_x * self.size_y, bytes_per_char * 8)
                 dat = bytearray(0)
-                while len(dat) < bytes_per_char:
+                print(bytes_per_char)
+                while curr_byte - (bytes_per_char * curr_char) - 3 <= bytes_per_char :
                     dat.append(data[curr_byte])
                     curr_byte += 1
-                self.chars[c] = FrameBuffer(dat, self.size_x, self.size_y, MONO_HLSB)
+                print(len(dat))
+                self.chars[c] = FrameBuffer(dat, self.size_x, self.size_y, 0)
+                curr_char += 1
             self.chars[" "] = FrameBuffer(bytearray(bytes_per_char), self.size_x, self.size_y, MONO_HLSB)
     
     def write_to_screen(self, string, screen, x, y) -> None:
         char_count = 0
         for c in string.upper():
-            screen.blit(self.chars(c), x + (char_count * self.size_x), y)
+            screen.blit(self.chars[c], x + (char_count * self.size_x), y)
             char_count += 1
 
 class MenuScreen:
@@ -89,7 +94,7 @@ class MenuScreen:
         self.hist = HistoryScreen
         self.varlist = [self.die_sides, self.die_amount, self.modifier, self.advantage_state, self.hist, "roll"]
         self.selected_var = 0 # what variable is the +/- key setting.
-        self.font = Font("font/lcdfont")
+        
 
     def select_next(self):
         self.selected_var += 1
@@ -128,7 +133,7 @@ class MenuScreen:
         self.display.text(signed_int_to_str(self.modifier), 88,2)
 
         # Die info
-        self.font.write_to_screen(str(self.die_amount) + "D" + str(self.die_sides), self.display, 8, 16)
+        self.display.text(str(self.die_amount) + "D" + str(self.die_sides), 8, 16)
         # Footer
         self.display.text("HIST ADV ROLL", 8,54)
         
