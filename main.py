@@ -14,13 +14,13 @@ from micropython import mem_info #type:ignore
 
 # Pin assignments
 CONFIRM = 17 # confirm button pin
-SELECT_PREV = 12 # Select <- 
-SELECT_NEXT = 13 # Select -> 
-VAL_UP = 14 # Increase button
-VAL_DOWN = 15 # Decrease button
-CONFIRM_LED = 25 # LED Pin for the confirm button.
-ADV_LED = -1 # LED pin for advantage
-DISADV_LED = -1 # LED pin for disadvantage
+SELECT_PREV = 18 # Select <- 
+SELECT_NEXT = 19 # Select -> 
+VAL_UP = 25 # Increase button
+VAL_DOWN = 24 # Decrease button
+CONFIRM_LED = 12 # LED Pin for the confirm button.
+ADV_LED = 22 # LED pin for advantage
+DISADV_LED = 23 # LED pin for disadvantage
 
 
 SDA_PIN = Pin(4) # pico binding, change as needed
@@ -30,8 +30,6 @@ SCL_PIN = Pin(5)
 running = True
 
 i2c = I2C(0, sda = SDA_PIN, scl = SCL_PIN )
-
-debug_pin = Pin(20, Pin.IN, Pin.PULL_UP) # random pin to kill stuff in the loop
 
 screen_address = i2c.scan()
 if screen_address == []:
@@ -68,14 +66,6 @@ def poll_buttons(list_of_buttons):
         return poll_result_list.index(False)
     return -1 # no valid presses.
 
-def do_roll(amount, value, mod, advantage):
-    print("Imagine I rolled", amount, "D", value, mod)
-    if advantage > 0:
-        print("with advantage!")
-    elif advantage < 0:
-        print("with disadvantage")
-
-
 
 async def check_inputs():
     b_list = [butt_sel_prev, butt_sel_next, butt_decrease, butt_increase, butt_roll_bro]
@@ -95,9 +85,7 @@ async def check_inputs():
                 mnu.decrease_chosen_var()
             elif poll_result == 4: # Roll/select
                 if mnu.is_roll_selected():
-                    do_roll(mnu.dice_amount, mnu.die_vals[mnu.val_pointer], mnu.modifier, mnu.advantage_state)
-                else:
-                    mem_info()
+                    asyncio.create_task(results.show_roll_result(screen_lock, mnu.die_vals[mnu.val_pointer], mnu.modifier, mnu.advantage_state))
         await asyncio.sleep_ms(10) #type:ignore
 
 async def roll_enabled():
@@ -108,6 +96,11 @@ async def roll_enabled():
             butt_roll_bro.led.turn_off()
         await asyncio.sleep_ms(10) #type:ignore
 
+async def refresh_screen():
+    while True:
+        if screen.needs_refresh:
+            screen.show()
+        await asyncio.sleep_ms(30) #type:ignore
             
             
 
@@ -121,8 +114,12 @@ async def main():
     while running:
         asyncio.create_task(check_inputs())
         asyncio.create_task(roll_enabled())
+        asyncio.create_task(refresh_screen())
         # Put one here for lights that checks adv/disadv, and if we can roll
+        if not running: # will this fucking work???
+            break
         await kill_loop.wait()
+
 
 if __name__ == "__main__":
     mnu.draw_to_display()

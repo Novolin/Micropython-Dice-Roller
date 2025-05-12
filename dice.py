@@ -3,6 +3,9 @@ from random import randint
 from framebuf import FrameBuffer, MONO_HLSB #type:ignore
 from array import array
 from math import ceil
+import anims
+import asyncio
+from time import sleep_ms #type:ignore
 
 # for advantage/disadvantage shit
 ADVANTAGE = 1
@@ -131,10 +134,12 @@ class MenuScreen:
         # simple getter for seeing if we can roll the die or not.
         if self.varlist[self.selected_var] == "roll":
             return True
-        return False
+        else:
+            return False
 
 
     def draw_to_display(self):
+
         # blank:
         self.display.fill(0)
         # Border:
@@ -170,8 +175,7 @@ class MenuScreen:
         elif self.selected_var == 5: # Roll
             self.display.hline(80, 50, 32, 1)
         self.display.needs_refresh = True
-        # TEMP: just blit immediately.
-        self.display.show()
+            
 
 class HistoryScreen:
     def __init__(self, display):
@@ -188,6 +192,7 @@ class ResultScreen:
         self.display = display
         self.active = False
         self.buffer = FrameBuffer(bytearray(1024), 128, 64, MONO_HLSB)
+        self.roll_anim = anims.CoinFlip(20, 10) # just use coin flip for now
     
     def show_result(self, val, modify = 0, adv = 0):
         # for now just dump it:
@@ -198,5 +203,34 @@ class ResultScreen:
             self.display.text(signed_int_to_str(modify) + " = " + str(final + modify), 32, 24)
         # not worryin about advantage yet
 
+    async def show_roll_result(self, lock, val, mod = 0, adv = 0):
+        # First roll our dice and get the result
+        res_string = ""
+        result = randint(1,val)
+        result2 = -1
+        if adv == ADVANTAGE:
+            result2 = randint(1,val)
 
+        async with lock:
+            # Wait for display to be free
+            while not self.roll_anim.done:
+                self.display.blit(self.roll_anim.draw_next_frame(), 0,0)
+                await asyncio.sleep_ms(self.roll_anim.frame_rate) #type:ignore
+            res_string = str(result)
+            if adv == ADVANTAGE:
+                res_string += "  "  + str(result2)
+                if result2 > result:
+                    res_string += "<--"
+                else:
+                    res_string = "-->" + res_string
+            elif adv == DISADVANTAGE:
+                if result2 > result:
+                    res_string = "-->" + res_string
+                else:
+                    res_string += "<--"
 
+        self.display.fill(0)
+        self.display.text(res_string, 24, 0)
+        self.display.show()
+        sleep_ms(1000) # wait for a full second.
+        self.roll_anim = anims.CoinFlip(20,10)
