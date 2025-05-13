@@ -54,7 +54,6 @@ class CoinFlip(Animation):
                     self.side = 0
                 else:
                     self.side = 1
-        print(self.rotation, self.y_rad, self.x_rad)
         if self.coin_y == 64 and self.y_vel > 0: # bounce
             self.y_vel = -3
 

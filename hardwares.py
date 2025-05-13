@@ -3,13 +3,13 @@ import asyncio
 from ssd1306 import SSD1306_I2C 
 from machine import Pin #type:ignore
 import framebuf #type:ignore
-from math import ceil
+from fonts import Font18x32
 # We're only supporting I2C at the moment, since thats what my hardware calls for
 # I'm sure you could take this code and make it play nice with any other interface.
 
 class LED:
     def __init__(self, pin):
-        self.pin = Pin(pin) #pin Pin pin pin
+        self.pin = Pin(pin, Pin.OUT) #pin Pin pin pin
         self.blink = False # are we going to make it blink?
         self.blink_time_ms = 0 # how many ms per blink?
         self.is_on = False # surface the pin state a bit easier.
@@ -41,6 +41,7 @@ class LED:
             self.toggle_state()
             await asyncio.sleep_ms(self.blink_time_ms) # type:ignore
             # You can tweak blink time external to this loop, if you're weird.
+        self.turn_off()
 
 class Button:
     def __init__(self, button_pin):
@@ -102,6 +103,7 @@ class Display(SSD1306_I2C):
         super().__init__(width, height, bus)
         self.needs_refresh = False # If we should refresh the screen on the next frame, or if it can stay static.
         self.enabled = True # Flip this if you want to stop the refresh loop.
+        self.bigFont = Font18x32()
         
     async def start_refresh_loop(self, frame_time):
         # Checks if the screen needs an update every frame_time ms, and runs show() if true.
@@ -110,3 +112,15 @@ class Display(SSD1306_I2C):
                 self.show()
                 self.needs_refresh = False
             await asyncio.sleep_ms(frame_time) #type:ignore
+
+    def blank_and_draw_border(self):
+        # Blanks the screen but draws the border gfx
+        self.fill(0)
+        self.hline(1,0,126,1)
+        self.hline(1,63,126,1)
+        self.vline(0,1,62,1)
+        self.vline(127,1,62,1)
+    
+    def write_big_text(self, string, x, y):
+        self.bigFont.write(string, self, x, y)
+        self.show()

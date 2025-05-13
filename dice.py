@@ -6,7 +6,7 @@ from math import ceil
 import anims
 import asyncio
 from time import sleep_ms #type:ignore
-
+import fonts
 # for advantage/disadvantage shit
 ADVANTAGE = 1
 DISADVANTAGE = -1
@@ -14,9 +14,9 @@ NEUTRAL = 0
 
 # Text-related display stuff
 
-def get_centered_text_coords(string_of_text:str, box_start = 0, box_size = 128):
+def get_centered_text_coords(string_of_text:str, font_width = 8, box_start = 0, box_size = 128):
     # returns the starting x coord for the text you enter, assuming default font (8px)
-    string_size = len(string_of_text) * 8 
+    string_size = len(string_of_text) * font_width
     return ((box_size - string_size) // 2) + box_start
 
 def signed_int_to_str(val) -> str:
@@ -141,31 +141,24 @@ class MenuScreen:
     def draw_to_display(self):
 
         # blank:
-        self.display.fill(0)
-        # Border:
-        self.display.hline(1,0,126,1)
-        self.display.hline(1,63,126,1)
-        self.display.vline(0,1,62,1)
-        self.display.vline(127,1,62,1)
-        # Pushes a change to the display
-        #TEMP: we're using default text to start.
+        self.display.blank_and_draw_border()
         # Header (modifier val)
         self.display.text("MODIFIER:",16,2)
         self.display.text(signed_int_to_str(self.modifier), 88,2)
 
         # Die info
         infostring = str(self.dice_amount) + "D" + str(self.die_sides)
-        self.display.text(infostring, get_centered_text_coords(infostring), 16)
+        self.display.write_big_text(infostring, get_centered_text_coords(infostring, self.display.bigFont.width), 16)
         # Footer
         self.display.text("HIST ADV ROLL", 8,54)
         
         # Place the selector indicator:
         if self.selected_var == 0: # Die size, will need tweaks after font change!!!!
-            line_start = get_centered_text_coords(infostring)
-            self.display.hline(line_start,24,8,1)
+            line_start = get_centered_text_coords(infostring, 18)
+            self.display.hline(line_start,56,8,1)
         elif self.selected_var == 1: # Number of Dice
-            line_start = get_centered_text_coords(infostring)
-            self.display.hline(line_start + 8 +len(str(self.dice_amount)) * 8,24,len(str(self.die_sides)) * 8,1)
+            line_start = get_centered_text_coords(infostring, 18)
+            self.display.hline(line_start + 8 +len(str(self.dice_amount)) * 8,56,len(str(self.die_sides)) * 8,1)
         elif self.selected_var == 2: # Modifier
             self.display.hline(88,11,len(signed_int_to_str(self.modifier)) *8, 1)
         elif self.selected_var == 3: # History
@@ -193,23 +186,15 @@ class ResultScreen:
         self.active = False
         self.buffer = FrameBuffer(bytearray(1024), 128, 64, MONO_HLSB)
         self.roll_anim = anims.CoinFlip(20, 10) # just use coin flip for now
-    
-    def show_result(self, val, modify = 0, adv = 0):
-        # for now just dump it:
-        final = randint(1,val)
-        self.display.fill(0)
-        self.display.text(final, 24, 24)
-        if modify: 
-            self.display.text(signed_int_to_str(modify) + " = " + str(final + modify), 32, 24)
-        # not worryin about advantage yet
+        self.font = fonts.Font18x32()
 
     async def show_roll_result(self, lock, val, mod = 0, adv = 0):
         # First roll our dice and get the result
         res_string = ""
-        result = randint(1,val)
+        result = randint(1,val) + mod
         result2 = -1
         if adv == ADVANTAGE:
-            result2 = randint(1,val)
+            result2 = randint(1,val) + mod
 
         async with lock:
             # Wait for display to be free
@@ -217,20 +202,13 @@ class ResultScreen:
                 self.display.blit(self.roll_anim.draw_next_frame(), 0,0)
                 await asyncio.sleep_ms(self.roll_anim.frame_rate) #type:ignore
             res_string = str(result)
-            if adv == ADVANTAGE:
-                res_string += "  "  + str(result2)
-                if result2 > result:
-                    res_string += "<--"
-                else:
-                    res_string = "-->" + res_string
-            elif adv == DISADVANTAGE:
-                if result2 > result:
-                    res_string = "-->" + res_string
-                else:
-                    res_string += "<--"
+            print(res_string)
 
-        self.display.fill(0)
-        self.display.text(res_string, 24, 0)
-        self.display.show()
-        sleep_ms(1000) # wait for a full second.
+            self.display.blank_and_draw_border()
+            self.display.write_big_text(res_string, 54,10)
+            self.display.show()
+            sleep_ms(1000) # wait for a full second.
+            self.display.text("ANY KEY",2,46)
+            self.display.text("TO CONTINUE", 2,54)
         self.roll_anim = anims.CoinFlip(20,10)
+        self.active = False
