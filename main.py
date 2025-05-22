@@ -19,7 +19,7 @@ SELECT_NEXT = 19 # Select ->
 VAL_UP = 25 # Increase button
 VAL_DOWN = 24 # Decrease button
 CONFIRM_LED = 16 # LED Pin for the confirm button.
-ADV_LED = 22 # LED pin for advantage
+ADV_LED = 21 # LED pin for advantage
 DISADV_LED = 23 # LED pin for disadvantage
 
 
@@ -46,6 +46,7 @@ print("Loading Screens...")
 mnu = dice.MenuScreen(screen)
 results = dice.ResultScreen(screen)
 anim_scr = anims.CoinFlip(20, 6)
+active_screen = mnu
 
 # Button bindings
 butt_sel_prev = hardwares.Button(SELECT_PREV)
@@ -99,7 +100,7 @@ async def check_inputs():
                     if mnu.is_roll_selected():
                         butt_roll_bro.led.turn_off()
                         discard_next_press = True
-                        asyncio.create_task(results.show_roll_result(screen_lock, mnu.die_vals[mnu.val_pointer], mnu.modifier, mnu.advantage_state))
+                        asyncio.create_task(results.draw_result_screen(mnu.die_sides, mnu.dice_amount, mnu.modifier, disp_lock = screen_lock))
                         
                     elif mnu.modifier == 10 and mnu.val_pointer == 0 and mnu.selected_var == 4:
                         print("KILL?")
@@ -122,10 +123,24 @@ async def continue_loop():
     while running: # Check the flag once per second until it is flipped. This is a bit sloppy, but it works???
         await asyncio.sleep_ms(1000) #type:ignore
 
+async def check_advantage():
+    while True:
+        if mnu.advantage_state > 0:
+            advantage_light.turn_on()
+            disadvantage_light.turn_off()
+        elif mnu.advantage_state < 0:
+            disadvantage_light.turn_on()
+            advantage_light.turn_off()
+        else:
+            advantage_light.turn_off()
+            disadvantage_light.turn_off()
+        await asyncio.sleep_ms(20) #type:ignore
+
 async def main():
     # create our monitor function
     asyncio.create_task(check_inputs())
     asyncio.create_task(refresh_screen())
+    asyncio.create_task(check_advantage())
     # Put one here for lights that checks adv/disadv, and if we can roll
     await continue_loop() # This will await infinitely until we kill the process
 

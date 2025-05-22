@@ -1,6 +1,21 @@
 # Defining some fonts as drawing things because eat my nuts image conversion is making me die
 import framebuf #type:ignore
 
+
+
+
+
+
+def get_buffer_array(width, height) -> bytearray:
+    # returns a bytearray object that can fit a horizontally sorted image buffer
+    buff_width = width // 8
+    if width % 8: # If we're less than a full horizontal byte, pad it with an extra one.
+        buff_width += 1
+    output = bytearray(buff_width * height)
+    return output
+
+
+
 class Font:
     # Parent font class
     def __init__(self, width, height) -> None:
@@ -15,7 +30,7 @@ class Font:
         # start with a blank buffer for each frame
         self.chars = {}
         for c in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ":
-            self.chars[c] = framebuf.FrameBuffer(bytearray(self.height * self.width), self.width, self.height, framebuf.MONO_HMSB)
+            self.chars[c] = framebuf.FrameBuffer(get_buffer_array(self.width, self.height), self.width, self.height, framebuf.MONO_HMSB)
 
     def populate_chars(self):
         print("None made: Invalid font?")
@@ -33,6 +48,10 @@ class Font:
                 c = " "
             target_display.blit(self.chars[c], x_pos + (ch_count * self.width), y_pos + (ln_count * self.height))
             ch_count += 1
+
+class ImgFont(Font): #TODO: do images again, dingus.
+    def __init__(self) -> None:
+        pass
 
 
 class Font18x32(Font):
@@ -124,3 +143,68 @@ class Font18x32(Font):
         # TODO: FINISH THESE
 
         print("")
+
+
+class SevenSeg:
+    def __init__(self, width, height, thickness = 1) -> None:
+        self.height = height
+        self.width = width
+        self.thickness = thickness # How many px wide is each segment
+        self.buff = framebuf.FrameBuffer(get_buffer_array(width, height), self.width, self.height, framebuf.MONO_HMSB)
+        self.seg_size = width - thickness * 2
+        self.midpoint = self.height // 2
+
+
+    def draw_segments(self, number):
+        # Draws the given segments into the buffer.
+        indx = ["ABCDEF", "DC", "BCGEF", "BCDEG", "ACDG", "ABDEG", "ABDEFG", "BCD", "ABCDEFG", "ABCDG", "DCEFG"] # segments are named clockwise starting at the top left vertical one
+        seglist = indx[number]
+        for c in seglist:
+            if c == "A":
+                for i in range(self.thickness):
+                    self.buff.vline(i, 1,self.seg_size, 1)
+            elif c == "B":
+                for i in range(self.thickness):
+                    self.buff.hline(1, i, self.seg_size, 1)
+            elif c =="C":
+                for i in range(self.thickness):
+                    self.buff.vline(self.width - 1 - i, 1, self.seg_size, 1)
+            elif c== "D":
+                for i in range(self.thickness):
+                    self.buff.vline(self.width-1 -i, self.midpoint + 1 + i, self.seg_size, 1)
+            elif c== "E":
+                for i in range(self.thickness):
+                    self.buff.hline(1, self.height - 1 - i, self.seg_size, 1)
+            elif c == "F":
+                for i in range(self.thickness):
+                    self.buff.vline(i, self.midpoint + 1 + i, self.seg_size, 1)
+            elif c == "G":
+                for i in range(self.thickness):
+                    if i % 2:
+                        self.buff.hline(1,self.midpoint - i, self.seg_size, 1)
+                    else:
+                        self.buff.hline(1, self.midpoint + i//2, self.seg_size, 1)
+
+    
+    def get_num(self, num) -> framebuf.FrameBuffer:
+        # Returns a single digit in our framebuf.
+        self.buff.fill(0) # Blank our framebuf
+        self.draw_segments(num)
+        return self.buff
+    
+    def DEBUG_DRAW_ALL(self, target):
+        # Draws all the numbers to a target display, to make sure they look good.
+        target.fill(0)
+        t_x = 4 # small buffer between edges of screen
+        t_y = 4
+        for i in range(10):
+            gfx = self.get_num(i)
+            if i == 0:
+                pass
+            elif t_x + self.width >= target.width:
+                t_y += self.height
+                t_x = 4
+            else:
+                t_x += self.width + 1
+            target.blit(gfx, t_x, t_y)
+        target.show()

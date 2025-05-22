@@ -7,10 +7,12 @@ import anims
 import asyncio
 from time import sleep_ms #type:ignore
 import fonts
+from micropython import const #type:ignore
+
 # for advantage/disadvantage shit
-ADVANTAGE = 1
-DISADVANTAGE = -1
-NEUTRAL = 0
+ADVANTAGE = const(1)
+DISADVANTAGE = const(-1)
+NEUTRAL = const(0)
 
 # Text-related display stuff
 
@@ -67,9 +69,9 @@ class MenuScreen:
         self.dice_amount = 1
         self.modifier = 0
         self.advantage_state = NEUTRAL
-        self.hist = HistoryScreen
-        self.varlist = [self.dice_amount, self.die_sides, self.modifier, self.hist, self.advantage_state , "roll"]
+        self.varlist = [self.dice_amount, self.die_sides, self.modifier, "hist", self.advantage_state , "roll"]
         self.selected_var = 0 # what variable is the +/- key setting.
+        self.font = fonts.SevenSeg(10,20)
         
 
     def select_next(self):
@@ -114,8 +116,10 @@ class MenuScreen:
         elif self.selected_var == 2: # Modifier
             self.change_modifier(1)
         elif self.selected_var == 4: # advantage, this is a bit messy.
-            if self.advantage_state < ADVANTAGE:
-                self.advantage_state += 1
+            if self.advantage_state == NEUTRAL:
+                self.advantage_state = ADVANTAGE
+            if self.advantage_state == DISADVANTAGE:
+                self.advantage_state = NEUTRAL
         return
     
     def decrease_chosen_var(self):
@@ -126,8 +130,10 @@ class MenuScreen:
         elif self.selected_var == 2: # Modifier
             self.change_modifier(-1)
         elif self.selected_var == 4: # advantage, this is a bit messy.
-            if self.advantage_state > DISADVANTAGE:
-                self.advantage_state -= 1
+            if self.advantage_state == NEUTRAL:
+                self.advantage_state = DISADVANTAGE
+            elif self.advantage_state == ADVANTAGE:
+                self.advantage_state = NEUTRAL
         return
     
     def is_roll_selected(self):
@@ -147,18 +153,25 @@ class MenuScreen:
         self.display.text(signed_int_to_str(self.modifier), 88,2)
 
         # Die info
-        infostring = str(self.dice_amount) + "D" + str(self.die_sides)
-        self.display.write_big_text(infostring, get_centered_text_coords(infostring, self.display.bigFont.width), 16)
+        self.display.blit(self.font.get_num(10), 59, 22) # big "d" in the center
+        self.display.blit(self.font.get_num(abs(self.dice_amount)), 46, 22) # number of die, shouldn't be over 10 anyway?
+        side_offset = 0
+        if self.die_sides >= 100:
+            self.display.blit(self.font.get_num(self.die_sides// 100), 72, 22)
+            side_offset += 12 # add a 12 px buffer to the next #
+        if self.die_sides >= 10:
+            self.display.blit(self.font.get_num(self.die_sides % 100 // 10), 72 + side_offset, 22)
+            side_offset += 12
+        
+        self.display.blit(self.font.get_num(self.die_sides % 10), 72 + side_offset, 22)
         # Footer
         self.display.text("HIST ADV ROLL", 8,54)
         
         # Place the selector indicator:
-        if self.selected_var == 0: # Die size, will need tweaks after font change!!!!
-            line_start = get_centered_text_coords(infostring, 18)
-            self.display.hline(line_start,56,8,1)
-        elif self.selected_var == 1: # Number of Dice
-            line_start = get_centered_text_coords(infostring, 18)
-            self.display.hline(line_start + 8 +len(str(self.dice_amount)) * 8,56,len(str(self.die_sides)) * 8,1)
+        if self.selected_var == 0: # Number of Dice
+            self.display.rect(44, 20,self.font.width + 4, self.font.height + 4, 1)
+        elif self.selected_var == 1: # Die Value
+            self.display.rect(70,20,self.font.width + 4 +  (2 + self.font.width) * (side_offset // 12), self.font.height + 4, 1)
         elif self.selected_var == 2: # Modifier
             self.display.hline(88,11,len(signed_int_to_str(self.modifier)) *8, 1)
         elif self.selected_var == 3: # History
@@ -175,7 +188,8 @@ class HistoryScreen:
         self.display = display
         self.hist_list = {
             "20":[]}
-        self.hist_max_len = 10
+        self.hist_max_len = 5
+        self.hist_file = "roll_history.txt"
     
     def get_last_roll(self, dtype):
         print(self.hist_list[dtype])
@@ -184,31 +198,45 @@ class ResultScreen:
     def __init__(self, display):
         self.display = display
         self.active = False
-        self.buffer = FrameBuffer(bytearray(1024), 128, 64, MONO_HLSB)
-        self.roll_anim = anims.CoinFlip(20, 10) # just use coin flip for now
+        self.roll_anim = anims.SquareRoll(10, 10) # just use coin flip for now
         self.font = fonts.Font18x32()
+        self.show_animation = True # toggle animation on roll
+        self.always_use_numbers = True # Results will always be numerics, instead of dice gfx
 
-    async def show_roll_result(self, lock, val, mod = 0, adv = 0):
-        # First roll our dice and get the result
-        res_string = ""
-        result = randint(1,val) + mod
-        result2 = -1
-        if adv == ADVANTAGE:
-            result2 = randint(1,val) + mod
 
-        async with lock:
-            # Wait for display to be free
-            while not self.roll_anim.done:
-                self.display.blit(self.roll_anim.draw_next_frame(), 0,0)
-                await asyncio.sleep_ms(self.roll_anim.frame_rate) #type:ignore
-            res_string = str(result)
-            print(res_string)
+    async def draw_result_screen(self, diesize, dicenum, modify, advantage = NEUTRAL, disp_lock = None):
+        
+        if self.show_animation and disp_lock:
+            async with disp_lock:
+                while not self.roll_anim.done:
+                    self.display.blit(self.roll_anim.get_next_frame(), 0, 0)
+                    await asyncio.sleep_ms(self.roll_anim.frame_rate) #type: ignore
+                self.roll_anim.reset_anim()
+        
+        # do the math:
+        raw_results = []
+        for d in range(dicenum):
+            raw_results.append(randint(1,diesize))
+            if advantage != NEUTRAL: # Hopefully we don't have more than 1Dx with advantage?
+                raw_results.append(randint(1, diesize))
 
-            self.display.blank_and_draw_border()
-            self.display.write_big_text(res_string, 54,10)
-            self.display.show()
-            sleep_ms(1000) # wait for a full second.
-            self.display.text("ANY KEY",2,46)
-            self.display.text("TO CONTINUE", 2,54)
-        self.roll_anim = anims.CoinFlip(20,10)
-        self.active = False
+        # Blank and draw the border on the main display:
+        self.display.blank_and_draw_border()
+
+        # Most common: one die, without advantage.
+        if dicenum == 1 and advantage == NEUTRAL:
+            if modify == 0: # nothing new, just do it straight
+                self.font.write(str(raw_results[0]), self.display, 32,20)
+            else: 
+                self.display.text(str(raw_results[0]) + signed_int_to_str(modify) + " =", 32,32)
+                self.font.write(str(raw_results[0] + modify), self.display, 80, 20 )
+        else:
+            print("not yet bucko")
+
+        
+
+
+    def wait(self, time):
+        sleep_ms(time) # wait for a full second.
+        self.display.text("ANY KEY",2,46)
+        self.display.text("TO CONTINUE", 2,54)
