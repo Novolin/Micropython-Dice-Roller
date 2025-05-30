@@ -192,6 +192,27 @@ class SevenSeg:
         self.draw_segments(num)
         return self.buff
     
+    def get_multi_digit(self, number) -> framebuf.FrameBuffer:
+        buffsize_x = self.width
+        if number // 10:
+            buffsize_x += self.width + 2
+        if number // 100:
+            buffsize_x += self.width + 2
+        multibuff = framebuf.FrameBuffer(get_buffer_array(buffsize_x, self.height), buffsize_x, self.height, framebuf.MONO_HMSB)
+        target_x = 0
+        if number // 100:
+            multibuff.blit(self.get_num(number//100), target_x, 0)
+            target_x += self.width + 2
+        if number // 10:
+            multibuff.blit(self.get_num(number%100 // 10), target_x, 0)
+            target_x += self.width + 2
+        multibuff.blit(self.get_num(number%10), target_x, 0)
+        return multibuff
+
+    def write(self, num, target,x, y):
+        # Acts like the write method on a regular font, for compat.
+        target.blit(self.get_multi_digit(num), x, y)
+
     def DEBUG_DRAW_ALL(self, target):
         # Draws all the numbers to a target display, to make sure they look good.
         target.fill(0)

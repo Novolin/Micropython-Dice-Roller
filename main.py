@@ -100,7 +100,7 @@ async def check_inputs():
                     if mnu.is_roll_selected():
                         butt_roll_bro.led.turn_off()
                         discard_next_press = True
-                        asyncio.create_task(results.draw_result_screen(mnu.die_sides, mnu.dice_amount, mnu.modifier, disp_lock = screen_lock))
+                        asyncio.create_task(results.draw_result_screen(mnu.die_sides, mnu.dice_amount, mnu.modifier, mnu.advantage_state, disp_lock = screen_lock))
                         
                     elif mnu.modifier == 10 and mnu.val_pointer == 0 and mnu.selected_var == 4:
                         print("KILL?")
