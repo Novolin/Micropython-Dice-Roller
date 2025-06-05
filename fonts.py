@@ -50,7 +50,7 @@ class Font:
             ch_count += 1
 
 class ImgFont(Font): #TODO: do images again, dingus.
-    def __init__(self) -> None:
+    def __init__(self, file) -> None:
         pass
 
 

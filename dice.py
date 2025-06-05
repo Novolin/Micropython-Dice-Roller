@@ -2,12 +2,11 @@
 from random import randint
 from framebuf import FrameBuffer, MONO_HLSB #type:ignore
 from array import array
-from math import ceil
 import anims
 import asyncio
-from time import sleep_ms #type:ignore
 import fonts
 from micropython import const #type:ignore
+from collections import deque
 
 # for advantage/disadvantage shit
 ADVANTAGE = const(1)
@@ -186,11 +185,48 @@ class MenuScreen:
 class HistoryScreen:
     def __init__(self, display):
         self.display = display
-        self.hist_list = {
-            "20":[]}
+        self.hist_list = deque([])
         self.hist_max_len = 5
         self.hist_file = "roll_history.txt"
+        self.save_to_file = True # Will save all rolls to file.
+        
     
+    def load_roll_list(self):
+        pass # TODO: load last 5 rolls from file for compat between power cycles.
+
+    def add_hist_item(self, dicenum, dieval, mod, adv, result):
+        self.hist_list.append((dicenum, dieval, mod, adv, result))
+        if len(self.hist_list) > self.hist_max_len:
+            self.hist_list.popleft() # discard the leftmost item, aka the oldest.
+    
+    def write_result_to_file(self, result):
+        # Takes a tuple of  # of dice, die value, modifier, advantage, and the resulting rolls, and saves to the result file
+        # in format #, Val, Mod, Adv, roll1, roll2 ...
+        writestring = ""
+        for o in result:
+            writestring += str(o)
+            writestring += ","
+
+
+        with open(self.hist_file, "+a") as outfile:
+            outfile.write(writestring)
+            
+
+    def draw_hist_screen(self, roll = -1):
+        self.display.blank_and_draw_border()
+        # Draw our place markers at the top:
+        if roll == -1: # default, latest roll:
+            roll = len(self.hist_list) - 1
+        selector_start_pos = 64 - len(self.hist_list) * 6 # half of 12 px width
+        for i in range(len(self.hist_list)):
+            if i == roll:
+                self.display.ellipse(selector_start_pos, 8, 6, 6, 1, 1) #filled
+            else:
+                self.display.ellipse(selector_start_pos, 8, 6, 6, 1)
+
+        
+
+
     def get_last_roll(self, dtype):
         print(self.hist_list[dtype])
 
@@ -198,7 +234,7 @@ class ResultScreen:
     def __init__(self, display):
         self.display = display
         self.active = False
-        self.roll_anim = anims.SquareRoll(10, 10) # just use coin flip for now
+        self.roll_anim = anims.SquareRoll(10, 12) # update to include others later
         self.font = fonts.SevenSeg(RESULTS_FONT_W,RESULTS_FONT_H,2)
         self.show_animation = True # toggle animation on roll
         self.always_use_numbers = True # Results will always be numerics, instead of dice gfx
@@ -253,13 +289,14 @@ class ResultScreen:
         else:
             print("not yet bucko")'''
         # quick and dirty with just text for now
+        # known issue: too many die will cause wrapping issues.
         if dicenum == 1 and advantage == NEUTRAL:
             
             
             rstring = str(raw_results[0])
                 
             if modify != 0:
-                rstring += signed_int_to_str(modify) + " =" + str(raw_results[0] + modify)
+                rstring += signed_int_to_str(modify) + "= " + str(raw_results[0] + modify)
             self.display.text(rstring, 63 - len(rstring) * 4, 32, 1)
         elif dicenum == 1:
             if advantage == ADVANTAGE:
@@ -277,7 +314,7 @@ class ResultScreen:
                     losestring = str(raw_results[1])
                     winstring = str(raw_results[0])
             if modify != 0:
-                winstring += signed_int_to_str(modify) + " = " + str(int(winstring) + modify) #sloppy but it should work
+                winstring += signed_int_to_str(modify) + "= " + str(int(winstring) + modify) #sloppy but it should work
             self.display.text(losestring, 32 - len(losestring) * 4, 32, 1)
             self.display.text(winstring, 96 - len(winstring) * 4, 32, 1)
             self.display.hline(96-len(winstring) * 4, 42, len(winstring) * 8, 1)
@@ -307,8 +344,3 @@ class ResultScreen:
         self.display.text(infostring, 2, 2, 1)
         self.display.vline(stringsize, 0, 11, 1)
         self.display.hline(0, 11, stringsize, 1)
-
-    def wait(self, time):
-        sleep_ms(time) # wait for a full second.
-        self.display.text("ANY KEY",2,46)
-        self.display.text("TO CONTINUE", 2,54)

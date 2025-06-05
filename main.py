@@ -13,18 +13,18 @@ from micropython import mem_info #type:ignore
 
 
 # Pin assignments
-CONFIRM = 17 # confirm button pin
-SELECT_PREV = 18 # Select <- 
-SELECT_NEXT = 19 # Select -> 
-VAL_UP = 25 # Increase button
-VAL_DOWN = 24 # Decrease button
-CONFIRM_LED = 16 # LED Pin for the confirm button.
-ADV_LED = 21 # LED pin for advantage
-DISADV_LED = 23 # LED pin for disadvantage
+CONFIRM = 11 # confirm button pin
+SELECT_PREV = 14 # Select <- 
+SELECT_NEXT = 15 # Select -> 
+VAL_UP = 13 # Increase button
+VAL_DOWN = 12 # Decrease button
+CONFIRM_LED = 4 # LED Pin for the confirm button.
+ADV_LED = 26 # LED pin for advantage
+DISADV_LED = 27 # LED pin for disadvantage
 
 
-SDA_PIN = Pin(4) # pico binding, change as needed
-SCL_PIN = Pin(5) 
+SDA_PIN = Pin(0) # pico binding, change as needed
+SCL_PIN = Pin(1) 
 
 
 running = True
@@ -125,10 +125,10 @@ async def continue_loop():
 
 async def check_advantage():
     while True:
-        if mnu.advantage_state > 0:
+        if mnu.advantage_state == dice.ADVANTAGE:
             advantage_light.turn_on()
             disadvantage_light.turn_off()
-        elif mnu.advantage_state < 0:
+        elif mnu.advantage_state  == dice.DISADVANTAGE:
             disadvantage_light.turn_on()
             advantage_light.turn_off()
         else:
@@ -141,7 +141,6 @@ async def main():
     asyncio.create_task(check_inputs())
     asyncio.create_task(refresh_screen())
     asyncio.create_task(check_advantage())
-    # Put one here for lights that checks adv/disadv, and if we can roll
     await continue_loop() # This will await infinitely until we kill the process
 
 
