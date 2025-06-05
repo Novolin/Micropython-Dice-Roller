@@ -1,6 +1,6 @@
 # Micropython SSD1306 Dice Roller thing
 
-#V0.1
+#V 0.2: Usable!
 
 from machine import Pin, I2C #type: ignore
 import hardwares
@@ -12,7 +12,7 @@ from time import sleep_ms #type: ignore
 from micropython import mem_info #type:ignore
 
 
-# Pin assignments
+# Pin assignments, change with your board layout
 CONFIRM = 11 # confirm button pin
 SELECT_PREV = 14 # Select <- 
 SELECT_NEXT = 15 # Select -> 
@@ -23,7 +23,7 @@ ADV_LED = 26 # LED pin for advantage
 DISADV_LED = 27 # LED pin for disadvantage
 
 
-SDA_PIN = Pin(0) # pico binding, change as needed
+SDA_PIN = Pin(0) # pico binding for i2c bus 0, change as needed
 SCL_PIN = Pin(1) 
 
 
